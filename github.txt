@@ -5,7 +5,7 @@ Twotoo@o456
 
 git init
 git add .
-git commit -m "Dash trading app"
+git commit -m "v1"
 git branch -M main
-git remote add origin https://github.com/<your-username>/<repo-name>.git
+git remote add origin https://github.com/naveen04326/math_options_nse.git
 git push -u origin main
