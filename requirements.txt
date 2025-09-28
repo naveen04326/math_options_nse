@@ -1,0 +1,14 @@
+dash
+dhanhq
+requests
+plotly
+pandas
+numpy
+flask
+hyper
+urllib3
+yfinance
+httpx
+beautifulsoup4
+kaleido
+gunicorn

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+*.pickle
+
+# Virtual env
+venv/
+.env/
+
+# Logs
+*.log
+
+# Assets
+assets/*.pickle
+assets/*.jpg
+assets/done_signal.txt
+assets/credentials.txt
+
+# OS files
+.DS_Store
+Thumbs.db

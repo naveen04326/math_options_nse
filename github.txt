@@ -1,0 +1,11 @@
+https://github.com/naveen04326
+
+
+Twotoo@o456
+
+git init
+git add .
+git commit -m "Dash trading app"
+git branch -M main
+git remote add origin https://github.com/<your-username>/<repo-name>.git
+git push -u origin main
