@@ -1,6 +1,7 @@
 dash
 dash-bootstrap-components
 dhanhq
+pdb
 requests
 plotly
 pandas
