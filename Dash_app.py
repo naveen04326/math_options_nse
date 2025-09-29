@@ -8,10 +8,10 @@ import pickle
 import json
 
 # Import modules from code package
-from code.dhan_service import DhanService
-from code.nse_data_fetch import get_nifty_hist_data
-from code.strategy_engine import start_runner, stop_runner, is_runner_running, init_services
-from code.order_manager import OrderManager
+from Core_Code.dhan_service import DhanService
+from Core_Code.nse_data_fetch import get_nifty_hist_data
+from Core_Code.strategy_engine import start_runner, stop_runner, is_runner_running, init_services
+from Core_Code.order_manager import OrderManager
 
 # PROJECT PATHS
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
