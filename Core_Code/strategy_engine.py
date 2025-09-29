@@ -11,9 +11,9 @@ import plotly.graph_objects as go
 import requests
 import logging
 
-from code.nse_data_fetch import get_nifty_hist_data, fetch_cookies, get_adjusted_headers
-from code.dhan_service import DhanService
-from code.order_manager import OrderManager
+from Core_Code.nse_data_fetch import get_nifty_hist_data, fetch_cookies, get_adjusted_headers
+from Core_Code.dhan_service import DhanService
+from Core_Code.order_manager import OrderManager
 
 # -----------------------------
 # Assets and logging setup
