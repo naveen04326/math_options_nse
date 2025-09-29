@@ -48,7 +48,8 @@ _runner_thread = None
 _runner_stop_event = None
 _dhan_service = None
 _order_manager = None
-
+_last_tick_time = None
+_live_mode = False
 # Load params table if exists
 if os.path.exists(PARAMS_FILE):
     try:
@@ -223,15 +224,18 @@ def enter_order(identifier, price, strike_type, strike_price, live_mode=False):
     if not _order_manager:
         return None
     if live_mode:
-        return _order_manager.live_trade(identifier, 1, strike_type, price=price)
+        return _order_manager.live_trade(identifier, 1, strike_type, strike_price, price)
     else:
         return _order_manager.paper_trade(identifier, 1, strike_type, strike_price, price)
+
 
 
 # -----------------------------
 # Runner Loop
 # -----------------------------
-def run_loop(client_id=None, access_token=None, access_key=None, stop_event=None):
+def run_loop(client_id=None, access_token=None, access_key=None, stop_event=None, live_mode=False):
+    global _last_tick_time, _live_mode
+    _live_mode = live_mode
     init_services(client_id, access_token, access_key)
     engine = StrategyEngine()
 
@@ -251,6 +255,7 @@ def run_loop(client_id=None, access_token=None, access_key=None, stop_event=None
         if now >= datetime.strptime("09:26", "%H:%M").time() and now <= datetime.strptime("15:25", "%H:%M").time():
             try:
                 df_temp = get_nifty_live()
+                _last_tick_time = datetime.now().strftime("%H:%M:%S")
                 temp_df = pd.DataFrame(
                     [
                         {
@@ -360,7 +365,7 @@ def run_loop(client_id=None, access_token=None, access_key=None, stop_event=None
                                     strike = int(put_parts[0])
                                     identifier = temp_oi.loc[strike]["identifier_PE"]
                                     price = temp_oi.loc[strike]["put_value_Bid"]
-                                enter_order(identifier, price, option_type, strike, live_mode=False)
+                                enter_order(identifier, price, option_type, strike, live_mode=_live_mode)
                                 _order_manager.order_flag = True
                                 logger.info(f"Order placed: {option_type} {strike} @ {price}")
                             except Exception as e:
@@ -390,25 +395,25 @@ def run_loop(client_id=None, access_token=None, access_key=None, stop_event=None
             time.sleep(60)
 
 
-# -----------------------------
+## -----------------------------
 # Runner Wrappers
 # -----------------------------
-def _runner_target(client_id, access_token, access_key, stop_event):
-    run_loop(client_id, access_token, access_key, stop_event)
+def _runner_target(client_id, access_token, access_key, stop_event, live_mode):
+    run_loop(client_id, access_token, access_key, stop_event, live_mode)
 
 
-def start_runner(client_id=None, access_token=None, access_key=None):
+def start_runner(client_id=None, access_token=None, access_key=None, live_mode=False):
     global _runner_thread, _runner_stop_event
     if _runner_thread and _runner_thread.is_alive():
         return
     _runner_stop_event = threading.Event()
     _runner_thread = threading.Thread(
         target=_runner_target,
-        args=(client_id, access_token, access_key, _runner_stop_event),
+        args=(client_id, access_token, access_key, _runner_stop_event, live_mode),
         daemon=True,
     )
     _runner_thread.start()
-    logger.info("Runner thread started")
+    logger.info(f"Runner thread started (live_mode={live_mode})")
 
 
 def stop_runner():
@@ -421,3 +426,7 @@ def stop_runner():
 
 def is_runner_running():
     return _runner_thread is not None and _runner_thread.is_alive()
+
+
+def get_last_tick_time():
+    return _last_tick_time

@@ -4,6 +4,8 @@ import threading
 import time
 from datetime import datetime
 
+from Core_Code.nse_data_fetch import get_option_data   # ✅ fallback for paper trades
+
 # Path to assets folder
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
@@ -40,6 +42,7 @@ class OrderManager:
             "P/L": None,
             "Identifier": str(identifier),
             "OrderID": None,
+            "StrikePrice": strike_price,   # ✅ store for fallback lookup
         }
 
         with self._lock:
@@ -72,6 +75,7 @@ class OrderManager:
             "P/L": None,
             "Identifier": str(identifier),
             "OrderID": order_id,
+            "StrikePrice": strike_price,
         }
 
         with self._lock:
@@ -91,8 +95,21 @@ class OrderManager:
                     break
                 trade = self.open_trades[identifier]
 
+            ltp = None
             try:
-                ltp = self.dhan.get_ltp(identifier) if self.dhan else None
+                # Prefer Dhan LTP if available
+                if self.dhan:
+                    ltp = self.dhan.get_ltp(identifier)
+
+                # Fallback to NSE option chain if no LTP from Dhan (esp. for paper trades)
+                if not ltp:
+                    oi_df = get_option_data()
+                    strike = trade["StrikePrice"]
+                    if trade["Type"] == "CALL" and strike in oi_df.index:
+                        ltp = oi_df.loc[strike, "CALL_value_Bid"]
+                    elif trade["Type"] == "PUT" and strike in oi_df.index:
+                        ltp = oi_df.loc[strike, "put_value_Bid"]
+
             except Exception as e:
                 print(f"[Monitor] Failed to fetch LTP for {identifier}: {e}")
                 time.sleep(60)
