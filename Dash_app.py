@@ -6,6 +6,7 @@ import socket
 import os
 import pickle
 import json
+import os
 
 # Import modules from code package
 from Core_Code.dhan_service import DhanService
@@ -215,8 +216,25 @@ def refresh(n_clicks):
 
     return tables, images, trade_table
 
+# -----------------------------
+# Main entry
+# -----------------------------
+if __name__ == "__main__":
+    import os, socket
 
-if __name__ == '__main__':
+    # Render sets PORT, fallback to 8050 locally
+    port = int(os.environ.get("PORT", 8050))
+
+    # Debug ON locally, OFF in Render
+    debug_mode = os.environ.get("RENDER", None) is None
+
+    # Print URL for local debugging
     local_ip = socket.gethostbyname(socket.gethostname())
-    print(f"Dash app running on: http://{local_ip}:8050")
-    app.run_server(debug=False, host='0.0.0.0', port=8050, use_reloader=False)
+    print(f"Dash app running on: http://{local_ip}:{port}")
+
+    app.run(
+        debug=debug_mode,
+        host="0.0.0.0",
+        port=port,
+        use_reloader=debug_mode
+    )
