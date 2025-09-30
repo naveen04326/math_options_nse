@@ -5,6 +5,7 @@ from dash.dependencies import Input, Output, State
 import socket
 import os
 import pickle
+import dash.exceptions
 # Import modules from Core_Code
 from Core_Code.dhan_service import DhanService
 from Core_Code.nse_data_fetch import get_nifty_hist_data
@@ -111,8 +112,12 @@ app.layout = html.Div([
 ])
 
 
+# --- CORRECTION 1: Update input fields after saving credentials ---
 @app.callback(
-    Output('save-creds-status', 'children'),
+    [Output('save-creds-status', 'children'),
+     Output('input-client-id', 'value'),     
+     Output('input-access-token', 'value'),  
+     Output('input-access-key', 'value')],   
     Input('save-creds-btn', 'n_clicks'),
     State('input-client-id', 'value'),
     State('input-access-token', 'value'),
@@ -122,9 +127,13 @@ app.layout = html.Div([
 def save_creds(n_clicks, client_id, access_token, access_key):
     try:
         write_credentials(client_id, access_token, access_key)
-        return "✅ Credentials saved to assets/credentials.txt"
+        # On success, return status AND the saved values to update the input fields
+        return ("✅ Credentials saved to assets/credentials.txt", 
+                client_id, access_token, access_key)
     except Exception as e:
-        return f"❌ Save failed: {e}"
+        # On failure, return status and no_update for inputs
+        return (f"❌ Save failed: {e}", 
+                dash.no_update, dash.no_update, dash.no_update)
 
 
 @app.callback(
@@ -145,12 +154,20 @@ def control_runner(start_clicks, stop_clicks, n_intervals,
                    client_id, access_token, access_key, trade_mode):
     ctx = dash.callback_context
     if not ctx.triggered:
-        return "Status: Idle"
+        # Initial call status
+        running = is_runner_running()
+        tick = get_last_tick_time()
+        if running:
+            return f"Status: Runner running = True | Last tick: {tick or 'No tick yet'}"
+        else:
+            return "Status: Idle"
+    
     btn = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if btn == 'start-runner-btn':
-        if not client_id or not access_token:
-            return "Status: Provide client_id and access_token before starting."
+        # --- CORRECTION 2: Check all three values are provided ---
+        if not client_id or not access_token or not access_key:
+            return "Status: Provide Client ID, Access Token, and Access Key before starting."
         try:
             init_services(client_id, access_token, access_key or "")
             start_runner(client_id, access_token, access_key or "",
@@ -158,13 +175,15 @@ def control_runner(start_clicks, stop_clicks, n_intervals,
             return f"Status: Runner started in {'LIVE' if trade_mode == 'live' else 'PAPER'} mode."
         except Exception as e:
             return f"Status: Failed to start runner: {e}"
+            
     elif btn == 'stop-runner-btn':
         try:
             stop_runner()
             return "Status: Stop requested."
         except Exception as e:
             return f"Status: Stop failed: {e}"
-    else:
+            
+    else: # status-interval tick
         running = is_runner_running()
         tick = get_last_tick_time()
         if tick:
@@ -216,7 +235,8 @@ def refresh(n_clicks, n_intervals):
     images = []
     for p in IMAGE_FILES:
         if os.path.exists(p):
-            images.append(html.Img(src=p,
+            # Check for a way to bust image cache by appending timestamp
+            images.append(html.Img(src=f"{p}?t={os.path.getmtime(p)}",
                                    style={'width': '85%', 'maxWidth': '1000px', 'marginBottom': '12px'}))
         else:
             images.append(html.Div(f"Image not found: {os.path.basename(p)}"))
