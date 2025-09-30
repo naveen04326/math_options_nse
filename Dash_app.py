@@ -187,9 +187,9 @@ def control_runner(start_clicks, stop_clicks, n_intervals,
         running = is_runner_running()
         tick = get_last_tick_time()
         if tick:
-            return f"Status: Runner running = {running} | Last tick: {tick}"
+            return f"Status: Runner running = {running} | Last tick: {tick} | "
         else:
-            return f"Status: Runner running = {running} | No tick yet"
+            return f"Status: Runner running = {running} | No tick yet  | "
 
 
 def load_pickle(path):
