@@ -93,7 +93,7 @@ app.layout = html.Div([
 
     html.Div([
         html.H3(id='status-message', children="Status: Idle", style={'color': 'blue'}),
-        dcc.Interval(id='status-interval', interval=60*1000, n_intervals=0)  # refresh every 1min
+        dcc.Interval(id='status-interval', interval=5*60*1000, n_intervals=0)  # refresh every 5min
     ], style={'padding': '8px', 'border': '1px solid #eee', 'marginBottom': '16px'}),
 
     html.Div([
