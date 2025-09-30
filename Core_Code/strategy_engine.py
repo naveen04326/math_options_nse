@@ -12,7 +12,6 @@ import requests
 import logging
 from Core_Code.nse_data_fetch import get_nifty_hist_data, get_option_data_from_nse
 from Core_Code.dhan_service import DhanService
-from Core_Code.nse_data_fetch import get_option_data_from_nse
 from Core_Code.dhan_service import DhanService
 from Core_Code.order_manager import OrderManager
 

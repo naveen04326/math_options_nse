@@ -4,7 +4,7 @@ import threading
 import time
 from datetime import datetime
 
-from Core_Code.nse_data_fetch import get_option_data   # fallback for paper trades
+from Core_Code.nse_data_fetch import get_option_data_from_nse   # fallback for paper trades
 
 # Path to assets folder
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -105,7 +105,7 @@ class OrderManager:
 
                 # Fallback to NSE option chain if no LTP from Dhan (esp. paper trades)
                 if not ltp:
-                    oi_df = get_option_data()
+                    oi_df = get_option_data_from_nse()
                     strike = trade["StrikePrice"]
                     if trade["Type"] == "CALL" and strike in oi_df.index:
                         ltp = oi_df.loc[strike, "CALL_value_Bid"]
