@@ -10,8 +10,9 @@ import plotly.io as pio
 import plotly.graph_objects as go
 import requests
 import logging
-
-from Core_Code.nse_data_fetch import get_nifty_hist_data, fetch_cookies, get_adjusted_headers
+from Core_Code.nse_data_fetch import get_nifty_hist_data, get_option_data_from_nse
+from Core_Code.dhan_service import DhanService
+from Core_Code.nse_data_fetch import get_option_data_from_nse
 from Core_Code.dhan_service import DhanService
 from Core_Code.order_manager import OrderManager
 
@@ -171,36 +172,38 @@ def adding_indicators(df):
 
 
 def get_option_data():
-    session = requests.Session()
-    headers = get_adjusted_headers("https://www.nseindia.com")
-    cookies = fetch_cookies("https://www.nseindia.com")
-    url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
-    r = session.get(url, headers=headers, cookies=cookies, timeout=30)
-    r.raise_for_status()
-    data = r.json()
+    global _dhan_service
+    MAX_RETRIES = 2      # Total attempts = 1 (initial) + 2 (retries) = 3
+    RETRY_DELAY = 120    # 2 minutes in seconds
 
-    rows = []
-    for item in data.get("records", {}).get("data", []):
-        strike = item.get("strikePrice")
-        ce = item.get("CE", {})
-        pe = item.get("PE", {})
-        rows.append(
-            {
-                "strike": strike,
-                "Call_ODIN": ce.get("openInterest", 0),
-                "PUT_ODIN": pe.get("openInterest", 0),
-                "Call_OI_Diff": ce.get("changeinOpenInterest", 0),
-                "PUT_OI_DIFF": pe.get("changeinOpenInterest", 0),
-                "CALL_value_Bid": ce.get("bidprice"),
-                "put_value_Bid": pe.get("bidprice"),
-                "identifier_CE": ce.get("identifier"),
-                "identifier_PE": pe.get("identifier"),
-            }
-        )
-    df = pd.DataFrame(rows).set_index("strike")
-    df["time_stamp"] = data.get("records", {}).get("timestamp", "")
-    df["underlyingValue"] = data.get("records", {}).get("underlyingValue", None)
-    return df
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            # 1. Try Dhan API (if initialized)
+            if _dhan_service:
+                df = _dhan_service.get_option_chain()
+                if not df.empty:
+                    logger.info(f"[Data Fetch] Success via Dhan API on attempt {attempt + 1}.")
+                    return df
+
+            # 2. Fallback to NSE scrape
+            # NOTE: Assuming this is the scraping function defined/imported elsewhere
+            df = get_option_data_from_nse() 
+            if not df.empty:
+                logger.info(f"[Data Fetch] Success via NSE Scrape on attempt {attempt + 1}.")
+                return df
+
+        except Exception as e:
+            # Log the error but continue to the retry check
+            logger.error(f"[Data Fetch ERROR] Attempt {attempt + 1} failed: {e}")
+        
+        # If both attempts failed or an exception occurred, check for retry
+        if attempt < MAX_RETRIES:
+            logger.warning(f"[Data Fetch] Retrying in {RETRY_DELAY} seconds...")
+            time.sleep(RETRY_DELAY)
+        
+    # If all attempts fail, return an empty DataFrame and log the final failure
+    logger.error("[Data Fetch] All attempts failed after retries. Returning empty data.")
+    return pd.DataFrame()
 
 
 def nifty_Chart(df):

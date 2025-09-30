@@ -2,6 +2,9 @@ import requests
 import pandas as pd
 import numpy as np
 import time
+import json
+import requests
+import pandas as pd
 from datetime import datetime, timedelta
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -156,3 +159,49 @@ def get_nifty_hist_data():
             nifty_hist_data.drop(col, axis=1, inplace=True)
 
     return nifty_hist_data
+
+
+# ------------------------------
+# Real-Time Option Chain Fetch
+# ------------------------------
+
+def get_option_data_from_nse():
+    """
+    Fallback: Fetch Nifty option chain from NSE public API
+    """
+    try:
+        session = requests.Session()
+        headers = get_adjusted_headers("https://www.nseindia.com")
+        cookies = fetch_cookies("https://www.nseindia.com")
+
+        url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+        r = session.get(url, headers=headers, cookies=cookies, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+
+        rows = []
+        for item in data.get("records", {}).get("data", []):
+            strike = item.get("strikePrice")
+            ce = item.get("CE", {})
+            pe = item.get("PE", {})
+
+            rows.append({
+                "strike": strike,
+                "Call_ODIN": ce.get("openInterest", 0),
+                "PUT_ODIN": pe.get("openInterest", 0),
+                "Call_OI_Diff": ce.get("changeinOpenInterest", 0),
+                "PUT_OI_DIFF": pe.get("changeinOpenInterest", 0),
+                "CALL_value_Bid": ce.get("bidprice"),
+                "put_value_Bid": pe.get("bidprice"),
+                "identifier_CE": ce.get("identifier"),
+                "identifier_PE": pe.get("identifier"),
+            })
+
+        df = pd.DataFrame(rows).set_index("strike")
+        df["time_stamp"] = data.get("records", {}).get("timestamp", "")
+        df["underlyingValue"] = data.get("records", {}).get("underlyingValue", None)
+        return df
+
+    except Exception as e:
+        print(f"[NSE] Option chain fetch failed: {e}")
+        return pd.DataFrame()

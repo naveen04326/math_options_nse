@@ -11,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
-TRADE_LOG_PATH = os.path.join(ASSETS_DIR, "trade_log.csv")
+TRADE_LOG_PATH = os.path.join(ASSETS_DIR, "paper_trades.csv")
 
 
 class OrderManager:
