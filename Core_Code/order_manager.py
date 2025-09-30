@@ -126,7 +126,7 @@ class OrderManager:
 
             # ✅ Trailing stop adjustment
             if change_pct > 0:
-                new_stop = -6.0 + change_pct
+                new_stop = -6.0 + change_pct+2
                 if new_stop > trade["DynamicStop"]:
                     trade["DynamicStop"] = new_stop
 
