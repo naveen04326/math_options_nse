@@ -4,7 +4,7 @@ import threading
 import time
 from datetime import datetime
 
-from Core_Code.nse_data_fetch import get_option_data   # ✅ fallback for paper trades
+from Core_Code.nse_data_fetch import get_option_data   # fallback for paper trades
 
 # Path to assets folder
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,7 +42,8 @@ class OrderManager:
             "P/L": None,
             "Identifier": str(identifier),
             "OrderID": None,
-            "StrikePrice": strike_price,   # ✅ store for fallback lookup
+            "StrikePrice": strike_price,
+            "DynamicStop": -6.0,   # ✅ start stop-loss at -6%
         }
 
         with self._lock:
@@ -76,6 +77,7 @@ class OrderManager:
             "Identifier": str(identifier),
             "OrderID": order_id,
             "StrikePrice": strike_price,
+            "DynamicStop": -6.0,   # ✅ start stop-loss at -6%
         }
 
         with self._lock:
@@ -85,10 +87,10 @@ class OrderManager:
         return trade
 
     # -------------------------------
-    # MONITOR TP/SL
+    # MONITOR TP/SL with Trailing Stop
     # -------------------------------
     def _monitor_trade(self, identifier):
-        """Check every minute for +13% profit / -6% loss"""
+        """Check every minute for +13% profit or dynamic trailing stop"""
         while True:
             with self._lock:
                 if identifier not in self.open_trades:
@@ -101,7 +103,7 @@ class OrderManager:
                 if self.dhan:
                     ltp = self.dhan.get_ltp(identifier)
 
-                # Fallback to NSE option chain if no LTP from Dhan (esp. for paper trades)
+                # Fallback to NSE option chain if no LTP from Dhan (esp. paper trades)
                 if not ltp:
                     oi_df = get_option_data()
                     strike = trade["StrikePrice"]
@@ -119,9 +121,17 @@ class OrderManager:
                 time.sleep(60)
                 continue
 
+            # % change from entry
             change_pct = ((ltp - trade["Entry Price"]) / trade["Entry Price"]) * 100
 
-            if change_pct >= 13 or change_pct <= -6:
+            # ✅ Trailing stop adjustment
+            if change_pct > 0:
+                new_stop = -6.0 + change_pct
+                if new_stop > trade["DynamicStop"]:
+                    trade["DynamicStop"] = new_stop
+
+            # ✅ Exit rules
+            if change_pct >= 13 or change_pct <= trade["DynamicStop"]:
                 self.close_trade(identifier, ltp)
                 break
 
