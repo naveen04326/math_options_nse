@@ -249,7 +249,7 @@ def get_option_data_from_nse():
         print(f"[NSE] Option chain fetch failed: {e}")
         return pd.DataFrame()
 
-p = get_nifty_hist_data()
-print(p)
-q = get_option_data_from_nse()
-print(q)
+#p = get_nifty_hist_data()
+#print(p)
+#q = get_option_data_from_nse()
+#print(q)

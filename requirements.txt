@@ -1,9 +1,9 @@
 dash
 dash-bootstrap-components
-dhanhq
-requests
+dhanhq>=1.3.0
+requests>=2.31.0
 plotly
-pandas
+pandas>=2.0.0
 numpy
 flask
 hyper
@@ -13,3 +13,4 @@ httpx
 beautifulsoup4
 kaleido
 gunicorn
+requests-cache>=0.9.8
