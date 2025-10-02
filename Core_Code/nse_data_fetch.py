@@ -8,8 +8,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from hyper.contrib import HTTP20Adapter   # ✅ correct replacement for httpx
-
+#from hyper.contrib import HTTP20Adapter   # ✅ correct replacement for httpx
+import httpx
 
 # ------------------------------
 # Headers (mimic real browser)
@@ -73,9 +73,24 @@ def fetch_cookies(mount_url):
 # ------------------------------
 def fetch_url_hist_nifty(mount_url, url, cookies3):
     try:
-        session = requests.session()
-        session.mount(mount_url, HTTP20Adapter())  # ✅ HTTP/2 adapter from hyper
-        response = session.get(url, timeout=120, headers=get_adjusted_headers(mount_url), cookies=cookies3)
+        
+        with httpx.Client(
+            http2=False, # FIX: Set to False for stability on your environment
+            timeout=120.0, 
+            headers=get_adjusted_headers(mount_url), 
+            cookies=cookies3
+        ) as client:
+            response = client.get(url)
+             
+        
+        #client = httpx.Client(http2=True, timeout=120.0, headers=get_adjusted_headers(mount_url), cookies=cookies3)
+        #response = client.get(url)
+        #client.close() # Manually close the client to release resources
+
+
+        #session = requests.session()
+        #session.mount(mount_url, HTTP20Adapter())  # ✅ HTTP/2 adapter from hyper
+        #response = session.get(url, timeout=120, headers=get_adjusted_headers(mount_url), cookies=cookies3)
 
         if response.status_code == requests.codes.ok:
             data = response.json()
@@ -170,14 +185,42 @@ def get_option_data_from_nse():
     Fallback: Fetch Nifty option chain from NSE public API
     """
     try:
-        session = requests.Session()
-        headers = get_adjusted_headers("https://www.nseindia.com")
-        cookies = fetch_cookies("https://www.nseindia.com")
+        
+        # 1. CORRECTED Priming URL (The URL of the front-end page itself)
+        # This page generates the necessary session cookies.
+        base_url = "https://www.nseindia.com/option-chain" 
+        
+        # 2. Final API URL (This remains the same)
+        api_url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+        
+        # Ensure headers use the correct priming URL as the Referer
+        headers = get_adjusted_headers(base_url) 
+        
+        # Initialize httpx Client
+        with httpx.Client(
+            http2=False, # Stable connection
+            timeout=30.0, 
+            headers=headers
+        ) as client:
+            
+            # 3. Session Priming: Hit the base_url to establish the authorized session (Fixes 404/401)
+            r_prime = client.get(base_url)
+            r_prime.raise_for_status() 
+            
+            # 4. API Fetch: Use the same client for the API call
+            r = client.get(api_url)
+            r.raise_for_status()
+            data = r.json()
 
-        url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
-        r = session.get(url, headers=headers, cookies=cookies, timeout=30)
-        r.raise_for_status()
-        data = r.json()
+
+        #session = requests.Session()
+        #headers = get_adjusted_headers("https://www.nseindia.com")
+        #cookies = fetch_cookies("https://www.nseindia.com")
+
+        #url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+        #r = session.get(url, headers=headers, cookies=cookies, timeout=30)
+        #r.raise_for_status()
+        #data = r.json()
 
         rows = []
         for item in data.get("records", {}).get("data", []):
@@ -205,3 +248,8 @@ def get_option_data_from_nse():
     except Exception as e:
         print(f"[NSE] Option chain fetch failed: {e}")
         return pd.DataFrame()
+
+p = get_nifty_hist_data()
+print(p)
+q = get_option_data_from_nse()
+print(q)
