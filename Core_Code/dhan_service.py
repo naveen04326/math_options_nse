@@ -48,7 +48,7 @@ class DhanService:
         order = self.client.place_order(
             security_id=identifier,
             exchange_segment="NSE_FNO",
-            transaction_type="BUY" if option_type.upper() == "CALL" else "SELL",
+            transaction_type="BUY", #if option_type.upper() == "CALL" else "SELL",
             quantity=qty,
             price=price,
             order_type="LIMIT"

@@ -6,7 +6,6 @@ plotly
 pandas>=2.0.0
 numpy
 flask
-hyper
 urllib3
 yfinance
 httpx

@@ -8,7 +8,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-#from hyper.contrib import HTTP20Adapter   # ✅ correct replacement for httpx
 import httpx
 
 # ------------------------------
