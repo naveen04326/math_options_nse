@@ -10,7 +10,7 @@ import plotly.io as pio
 import plotly.graph_objects as go
 import requests
 import logging
-from Core_Code.nse_data_fetch import get_nifty_hist_data, get_option_data_from_nse
+from Core_Code.nse_data_fetch import get_nifty_hist_data, get_option_data_from_nse, get_nifty_live_nse   
 from Core_Code.dhan_service import DhanService
 from Core_Code.dhan_service import DhanService
 from Core_Code.order_manager import OrderManager
@@ -151,19 +151,49 @@ def init_services(client_id=None, access_token=None, access_key=None):
 
 
 def get_nifty_live():
-    if _dhan_service is None:
-        raise RuntimeError("DhanService not initialized")
-    quote = _dhan_service.get_quote("NSE:NIFTY50")
-    row = {
-        "OPEN": float(quote.get("open", 0)),
-        "HIGH": float(quote.get("high", 0)),
-        "LOW": float(quote.get("low", 0)),
-        "LTP": float(quote.get("lastPrice", quote.get("ltp", 0))),
-        "Volume": float(quote.get("volume", 0)),
-        "Date": datetime.now().strftime("%d-%m-%Y"),
-        "load_time": datetime.now().strftime("%H:%M:%S"),
-    }
-    return pd.Series(row)
+    """
+    Get live Nifty data.
+    Priority: Dhan API -> NSE API (get_nifty_live_nse).
+    Returns a pd.Series with keys: OPEN, HIGH, LOW, LTP, Volume, Date, load_time
+    """
+
+    # ---- Try Dhan API first ----
+    if _dhan_service is not None:
+        try:
+            quote = _dhan_service.get_quote("NSE:NIFTY50")
+            if quote:
+                row = {
+                    "OPEN": float(quote.get("open", 0)),
+                    "HIGH": float(quote.get("high", 0)),
+                    "LOW": float(quote.get("low", 0)),
+                    "LTP": float(quote.get("lastPrice", quote.get("ltp", 0))),
+                    "Volume": float(quote.get("volume", 0)),
+                    "Date": datetime.now().strftime("%d-%m-%Y"),
+                    "load_time": datetime.now().strftime("%H:%M:%S"),
+                }
+                return pd.Series(row)
+        except Exception as e:
+            print(f"[get_nifty_live] Dhan API failed, trying NSE fallback: {e}")
+
+    # ---- Fallback: NSE live API ----
+    try:
+        nse_row = get_nifty_live_nse()
+        if not nse_row.empty:
+            row = {
+                "OPEN": float(nse_row.get("OPEN", 0)),
+                "HIGH": float(nse_row.get("HIGH", 0)),
+                "LOW": float(nse_row.get("LOW", 0)),
+                "LTP": float(nse_row.get("LTP", 0)),
+                "Volume": float(nse_row.get("Volume", 0)),
+                "Date": nse_row.get("Date", datetime.now().strftime("%d-%m-%Y")),
+                "load_time": nse_row.get("load_time", datetime.now().strftime("%H:%M:%S")),
+            }
+            return pd.Series(row)
+    except Exception as e:
+        print(f"[get_nifty_live] NSE fetch also failed: {e}")
+
+    # ---- If both fail ----
+    return pd.Series()
 
 
 def adding_indicators(df):
@@ -225,12 +255,10 @@ def get_OIDATA_Graph(oi_df, nifty_df):
 def enter_order(identifier, price, strike_type, strike_price, live_mode=False):
     if not _order_manager:
         return None
-    if live_mode:
-        return _order_manager.live_trade(identifier, 1, strike_type, strike_price, price)
+    if live_mode: 
+        return _order_manager.live_trade(identifier, 2, strike_type, strike_price, price) #Change LOT Size later
     else:
-        return _order_manager.paper_trade(identifier, 1, strike_type, strike_price, price)
-
-
+        return _order_manager.paper_trade(identifier, 2, strike_type, strike_price, price) #Change LOT Size later based on Risk Amount
 
 # -----------------------------
 # Runner Loop

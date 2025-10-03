@@ -8,6 +8,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from io import StringIO
 import httpx
 
 # ------------------------------
@@ -247,8 +248,80 @@ def get_option_data_from_nse():
     except Exception as e:
         print(f"[NSE] Option chain fetch failed: {e}")
         return pd.DataFrame()
+    
+
+# ---- 2. Fallback → NSE API ----
+def fetch_url_nifty(mount_url, url, cookies2):
+    """
+    Fetch data from NSE URL using httpx (HTTP/1.1 for stability).
+    Retries every 60 seconds on failure.
+    """
+    while True:
+        try:
+            # Create a client session with headers + cookies
+            with httpx.Client(
+                http2=False,   # keep HTTP/1.1 (NSE sometimes rejects http2)
+                timeout=90.0,
+                headers=get_adjusted_headers(mount_url),
+                cookies=cookies2
+            ) as client:
+                response = client.get(url)
+
+            if response.status_code == 200:
+                return response
+            else:
+                print(f"[fetch_url_nifty] Response not received => {response.status_code}")
+                time.sleep(60)
+
+        except Exception as e:
+            print(f"[fetch_url_nifty] Error: {e} | {datetime.now().strftime('%H:%M:%S')}")
+            time.sleep(60)
+            continue
+
+def get_nifty_live_nse():
+    
+     while True:
+        try: 
+            nifty_live_data = pd.DataFrame()  # Initialize as empty DataFrame
+            
+            #url_nifty = "https://www.nseindia.com/api/equity-stockIndices?csv=true&index=NIFTY%2050"
+            url_nifty = "https://www.nseindia.com/api/equity-stockIndices?csv=true&index=NIFTY%2050&selectValFormat=crores"
+            mount_url='https://www.nseindia.com/market-data/live-equity-market'
+            cookies2 = fetch_cookies(mount_url)
+            nifty_live_data = pd.read_csv(StringIO(fetch_url_nifty(mount_url,url_nifty, cookies2).content.decode('utf-8')))
+            
+            df_temp = nifty_live_data.head(1).assign(load_time=datetime.now().strftime('%H:%M'))
+            df_temp['Date'] = datetime.now().strftime('%d-%m-%Y')
+        
+            # Remove newline characters from column names
+            df_temp.columns = df_temp.columns.str.replace('\n', '').str.strip()
+
+            # Rename 'VOLUME (shares)' to 'Volume'
+            df_temp = df_temp.rename(columns={'VOLUME (shares)': 'Volume'})
+
+            # Define your columns
+            cols = ['OPEN', 'HIGH', 'LOW', 'PREV. CLOSE', 'LTP', 'Volume', '52W H', '52W L']
+
+            # Check if these columns exist in your dataframe
+            cols = [col for col in cols if col in df_temp.columns]
+
+            # Remove newline characters and spaces from values
+            df_temp[cols] = df_temp[cols].apply(lambda x: x.str.replace(' \n', '').str.strip())
+
+            # Convert columns to numeric data types
+            for col in cols:
+                df_temp[col] = df_temp[col].str.replace(',', '').astype(float)
+            #print("returning live nifty data")
+            return df_temp
+        except Exception as e:
+            print(f"An error occurred 232-function: {e} " + datetime.now().time().strftime("%H:%M:%S"))
+            time.sleep(60)
+            continue
+
 
 #p = get_nifty_hist_data()
 #print(p)
 #q = get_option_data_from_nse()
 #print(q)
+#r= get_nifty_live_nse()
+#print(r.columns)
