@@ -428,14 +428,35 @@ def run_loop(client_id=None, access_token=None, access_key=None, stop_event=None
 ## -----------------------------
 # Runner Wrappers
 # -----------------------------
+
+_runner_thread = None
+_runner_stop_event = None
+
 def _runner_target(client_id, access_token, access_key, stop_event, live_mode):
     run_loop(client_id, access_token, access_key, stop_event, live_mode)
 
-
 def start_runner(client_id=None, access_token=None, access_key=None, live_mode=False):
     global _runner_thread, _runner_stop_event
+
+    # If thread is already running, return
     if _runner_thread and _runner_thread.is_alive():
         return
+
+    # --- Market time checks ---
+    now = datetime.now()
+    market_open = now.replace(hour=9, minute=26, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+
+    if now < market_open:
+        sleep_secs = int((market_open - now).total_seconds())
+        sleep_mins = sleep_secs // 60
+        logger.info(f"Runner will sleep for {sleep_mins} minutes till 09:26 AM to RUN …")
+        time.sleep(sleep_secs)
+    elif now >= market_close:
+        logger.info("Markets are closed. Runner will not start.")
+        return
+
+    # --- Start runner thread ---
     _runner_stop_event = threading.Event()
     _runner_thread = threading.Thread(
         target=_runner_target,
